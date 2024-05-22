@@ -153,19 +153,21 @@ import Peer from "peerjs";
 import io from "socket.io-client";
 import "tailwindcss/tailwind.css";
 
-const VideoCall = () => {
+const VideoCall = ({ userId }) => {
   const [peerId, setPeerId] = useState("");
+  const [remotePeerId, setRemotePeerId] = useState("");
   const [call, setCall] = useState(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
   const [waitingForCall, setWaitingForCall] = useState(false); // State to track if the user is waiting for a call
+  const [incomingCall, setIncomingCall] = useState(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const socket = useRef(null);
   const peerRef = useRef(null);
 
   useEffect(() => {
-    const peer = new Peer();
+    const peer = new Peer(userId);
     peerRef.current = peer;
 
     peer.on("open", (id) => {
@@ -174,24 +176,26 @@ const VideoCall = () => {
 
     peer.on("call", (incomingCall) => {
       if (!call && !waitingForCall) { // If not already in a call and not waiting for a call
-        setWaitingForCall(true);
+        setIncomingCall(incomingCall);
+      } else {
+        // Automatically answer the call if already in a call or waiting for a call
         answerCall(incomingCall);
       }
     });
 
     socket.current = io("https://new-omagle.onrender.com");
     socket.current.on("ring", (data) => {
-      setWaitingForCall(false);
-      startCall(data.from);
+      setRemotePeerId(data.from);
     });
 
     return () => {
       peer.disconnect();
       socket.current.disconnect();
     };
-  }, [call, waitingForCall]);
+  }, [userId, call, waitingForCall]);
 
-  const startCall = (remotePeerId) => {
+  const startCall = () => {
+    setWaitingForCall(true); // Set waiting for call to true when user initiates a call
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -205,6 +209,7 @@ const VideoCall = () => {
   };
 
   const answerCall = (incomingCall) => {
+    setWaitingForCall(false); // Set waiting for call to false when user answers a call
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -214,10 +219,12 @@ const VideoCall = () => {
           remoteVideoRef.current.srcObject = remoteStream;
         });
         setCall(incomingCall);
+        setIncomingCall(null);
       });
   };
 
   const endCall = () => {
+    setWaitingForCall(false); // Set waiting for call to false when user ends the call
     if (call) {
       call.close();
       setCall(null);
@@ -242,11 +249,6 @@ const VideoCall = () => {
     setVideoOff(!videoOff);
   };
 
-  const handleVideoCall = () => {
-    socket.current.emit("callUser", { from: peerId });
-    setWaitingForCall(true);
-  };
-
   return (
     <div className="flex flex-col items-center p-4 space-y-4">
       <h1 className="text-xl font-bold">1-to-1 Video Call</h1>
@@ -255,12 +257,19 @@ const VideoCall = () => {
         <video ref={remoteVideoRef} autoPlay className="w-1/2 border" />
       </div>
       <div className="space-y-2">
+        <input
+          type="text"
+          placeholder="Enter peer ID to call"
+          value={remotePeerId}
+          onChange={(e) => setRemotePeerId(e.target.value)}
+          className="p-2 border rounded"
+        />
         <button
-          onClick={handleVideoCall}
+          onClick={startCall}
           className="bg-blue-500 text-white p-2 rounded"
-          disabled={waitingForCall || !!call} // Disable the call button if waiting for a call or already in a call
+          disabled={waitingForCall} // Disable the call button if waiting for a call
         >
-          {waitingForCall ? "Waiting for user..." : "Start Video Call"}
+          {waitingForCall ? "Waiting for call..." : "Call"}
         </button>
         {call && (
           <button
@@ -282,6 +291,14 @@ const VideoCall = () => {
         >
           {videoOff ? "Turn Video On" : "Turn Video Off"}
         </button>
+        {incomingCall && (
+          <button
+            onClick={() => answerCall(incomingCall)}
+            className="bg-green-500 text-white p-2 rounded"
+          >
+            Answer Call
+          </button>
+        )}
       </div>
     </div>
   );

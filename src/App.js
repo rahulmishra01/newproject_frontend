@@ -24,10 +24,10 @@
 
 // export default App;
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import VideoCall from './VideoCall';
 import 'tailwindcss/tailwind.css';
-import io from "socket.io-client";
+import io from 'socket.io-client';
 
 const App = () => {
   const [partnerId, setPartnerId] = useState(null);

@@ -1,202 +1,67 @@
 import React, { useEffect, useRef, useState } from "react";
-import Peer from "simple-peer";
-import { io } from "socket.io-client";
+import Peer from "peerjs";
+import io from "socket.io-client";
 
-const socket = io("https://new-omagle.onrender.com");
+const VideoCall = ({ userId }) => {
+  const [peerId, setPeerId] = useState("");
+  const [remotePeerId, setRemotePeerId] = useState("");
+  const [call, setCall] = useState(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const socket = useRef(null);
 
-function App() {
-  const [me, setMe] = useState("");
-  const [stream, setStream] = useState();
-  const [receivingCall, setReceivingCall] = useState(false);
-  const [caller, setCaller] = useState("");
-  const [callerSignal, setCallerSignal] = useState();
-  const [callAccepted, setCallAccepted] = useState(false);
-  const [idToCall, setIdToCall] = useState("");
-  const [callEnded, setCallEnded] = useState(false);
-  const [name, setName] = useState("");
-
-  const userVideo = useRef();
-  const connectionRef = useRef();
-  const myVideo = useRef();
-
+  const peer = new Peer(userId);
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setStream(stream);
-        if (myVideo.current) {
-          myVideo.current.srcObject = stream;
-        }
-      });
-
-    socket.on("me", (id) => {
-      setMe(id);
+    peer.on("open", (id) => {
+      setPeerId(id);
     });
 
-    socket.on("callUser", (data) => {
-      setReceivingCall(true);
-      setCaller(data.from);
-      setName(data.name);
-      setCallerSignal(data.signal);
+    peer.on("call", (call) => {
+      setCall(call);
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          localVideoRef.current.srcObject = stream;
+          call.answer(stream);
+          call.on("stream", (remoteStream) => {
+            remoteVideoRef.current.srcObject = remoteStream;
+          });
+        });
+    });
+
+    socket.current = io("https://new-omagle.onrender.com");
+    socket.current.on("ring", (data) => {
+      setRemotePeerId(data.from);
     });
 
     return () => {
-      socket.off("me");
-      socket.off("callUser");
+      peer.disconnect();
+      socket.current.disconnect();
     };
-  }, []);
+  }, [userId]);
 
-  const callUser = (id) => {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream: stream,
-    });
-
-    peer.on("signal", (data) => {
-      socket.emit("callUser", {
-        userToCall: id,
-        signalData: data,
-        from: me,
-        name: name,
+  const startCall = () => {
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        localVideoRef.current.srcObject = stream;
+        const call = peer.call(remotePeerId, stream);
+        call.on("stream", (remoteStream) => {
+          remoteVideoRef.current.srcObject = remoteStream;
+        });
+        setCall(call);
       });
-    });
-
-    peer.on("stream", (currentStream) => {
-      userVideo.current.srcObject = currentStream;
-    });
-
-    socket.on("callAccepted", (signal) => {
-      setCallAccepted(true);
-      peer.signal(signal);
-    });
-
-    connectionRef.current = peer;
-  };
-
-  const answerCall = () => {
-    setCallAccepted(true);
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream: stream,
-    });
-
-    peer.on("signal", (data) => {
-      socket.emit("answerCall", { signal: data, to: caller });
-    });
-
-    peer.on("stream", (currentStream) => {
-      userVideo.current.srcObject = currentStream;
-    });
-
-    peer.signal(callerSignal);
-    connectionRef.current = peer;
-  };
-
-  const leaveCall = () => {
-    setCallEnded(true);
-    connectionRef.current.destroy();
   };
 
   return (
-    <>
+    <div>
       <div>
-        <div className="flex flex-row w-full justify-center gap-[15%] h-screen bg-black">
-          <div>
-            <div className="flex-grow flex flex-col items-center justify-center h-[90%]">
-              <span className="text-white font-bold text-3xl mb-4">
-                Basic React JS video calling
-              </span>
-              <span className="text-white font-bold text-md mb-4 text-center underline">
-                Copy your ID and anyone using the same server can use it to call
-                you and vice versa!
-              </span>
-              <div className="flex flex-row gap-32">
-                <div className="flex flex-col items-center justify-center w-full">
-                  <div className="video">
-                    {stream && (
-                      <video
-                        className="rounded-full"
-                        playsInline
-                        muted
-                        ref={myVideo}
-                        autoPlay
-                        style={{ width: "300px" }}
-                      />
-                    )}
-                  </div>
-                  <span className="text-white font-bold text-lg mb-4">
-                    {caller}
-                  </span>
-                  <p className="text-white">{me}</p>
-                </div>
-
-                <div className="flex flex-col items-center justify-center w-full">
-                  {callAccepted && !callEnded ? (
-                    <video
-                      className="rounded-full"
-                      playsInline
-                      ref={userVideo}
-                      autoPlay
-                      style={{ width: "300px" }}
-                    />
-                  ) : (
-                    <div className="flex flex-col justify-center items-center">
-                      <img
-                        src="https://w0.peakpx.com/wallpaper/416/423/HD-wallpaper-devil-boy-in-mask-red-hoodie-dark-background-4ef517.jpg"
-                        className="rounded-full w-[15rem]"
-                      />
-                      <span className="text-white font-bold text-lg">
-                        {idToCall}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <textarea
-                className="text-black"
-                defaultValue={idToCall}
-                onChange={(e) => {
-                  setIdToCall(e.target.value);
-                }}
-              />
-              <div>
-                {callAccepted && !callEnded ? (
-                  <button
-                    className="text-black hover:text-gray-400 mr-6 font-bold bg-white rounded-md m-4 px-2"
-                    onClick={leaveCall}
-                  >
-                    End Call
-                  </button>
-                ) : (
-                  <button
-                    className="text-black hover:text-gray-400 mr-6 font-bold bg-white rounded-md m-4 px-2"
-                    onClick={() => callUser(idToCall)}
-                  >
-                    Call
-                  </button>
-                )}
-              </div>
-              <div className="text-white">
-                {receivingCall && !callAccepted ? (
-                  <div className="caller flex flex-col">
-                    <h1 className="text-white">{caller} is calling...</h1>
-                    <button
-                      className="text-black text-xl hover:text-gray-400 mr-6 font-bold bg-white rounded-md m-4 px-2"
-                      onClick={answerCall}
-                    >
-                      Answer
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
+        <video ref={localVideoRef} autoPlay muted />
+        <video ref={remoteVideoRef} autoPlay />
       </div>
-    </>
+      <button onClick={startCall}>Call</button>
+    </div>
   );
-}
+};
 
-export default App;
+export default VideoCall;

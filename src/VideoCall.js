@@ -22,12 +22,12 @@ const VideoCall = ({ userId }) => {
       setPeerId(id);
     });
 
-    peer.on('call', call => {
-      setCall(call);
+    peer.on('call', incomingCall => {
+      setCall(incomingCall);
       navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
         localVideoRef.current.srcObject = stream;
-        call.answer(stream);
-        call.on('stream', remoteStream => {
+        incomingCall.answer(stream);
+        incomingCall.on('stream', remoteStream => {
           remoteVideoRef.current.srcObject = remoteStream;
         });
       });
@@ -47,11 +47,11 @@ const VideoCall = ({ userId }) => {
   const startCall = () => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
       localVideoRef.current.srcObject = stream;
-      const call = peerRef.current.call(remotePeerId, stream);
-      call.on('stream', remoteStream => {
+      const outgoingCall = peerRef.current.call(remotePeerId, stream);
+      outgoingCall.on('stream', remoteStream => {
         remoteVideoRef.current.srcObject = remoteStream;
       });
-      setCall(call);
+      setCall(outgoingCall);
     });
   };
 
@@ -96,3 +96,4 @@ const VideoCall = ({ userId }) => {
 };
 
 export default VideoCall;
+

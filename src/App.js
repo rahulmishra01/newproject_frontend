@@ -1,67 +1,25 @@
-import React, { useEffect, useRef, useState } from "react";
-import Peer from "peerjs";
-import io from "socket.io-client";
+import React, { useState } from 'react';
+import VideoCall from './VideoCall';
+import 'tailwindcss/tailwind.css';
 
-const VideoCall = ({ userId }) => {
-  const [peerId, setPeerId] = useState("");
-  const [remotePeerId, setRemotePeerId] = useState("");
-  const [call, setCall] = useState(null);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const socket = useRef(null);
-
-  const peer = new Peer(userId);
-  useEffect(() => {
-    peer.on("open", (id) => {
-      setPeerId(id);
-    });
-
-    peer.on("call", (call) => {
-      setCall(call);
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          localVideoRef.current.srcObject = stream;
-          call.answer(stream);
-          call.on("stream", (remoteStream) => {
-            remoteVideoRef.current.srcObject = remoteStream;
-          });
-        });
-    });
-
-    socket.current = io("https://new-omagle.onrender.com");
-    socket.current.on("ring", (data) => {
-      setRemotePeerId(data.from);
-    });
-
-    return () => {
-      peer.disconnect();
-      socket.current.disconnect();
-    };
-  }, [userId]);
-
-  const startCall = () => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localVideoRef.current.srcObject = stream;
-        const call = peer.call(remotePeerId, stream);
-        call.on("stream", (remoteStream) => {
-          remoteVideoRef.current.srcObject = remoteStream;
-        });
-        setCall(call);
-      });
-  };
+const App = () => {
+  const [userId, setUserId] = useState('');
 
   return (
-    <div>
-      <div>
-        <video ref={localVideoRef} autoPlay muted />
-        <video ref={remoteVideoRef} autoPlay />
-      </div>
-      <button onClick={startCall}>Call</button>
+    <div className="App h-screen flex flex-col items-center justify-center bg-gray-100">
+      <header className="App-header flex flex-col items-center space-y-4">
+        <h1 className="text-2xl font-bold">1-to-1 Video Call</h1>
+        <input
+          type="text"
+          placeholder="Enter your user ID"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          className="p-2 border rounded"
+        />
+        {userId && <VideoCall userId={userId} />}
+      </header>
     </div>
   );
 };
 
-export default VideoCall;
+export default App;

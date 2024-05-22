@@ -16,7 +16,7 @@ const App = () => {
           onChange={(e) => setUserId(e.target.value)}
           className="p-2 border rounded"
         />
-        <VideoCall userId={userId} />
+        {userId && <VideoCall userId={userId} />}
       </header>
     </div>
   );

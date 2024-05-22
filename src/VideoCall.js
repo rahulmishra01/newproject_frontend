@@ -151,26 +151,24 @@
 import React, { useEffect, useRef, useState } from "react";
 import Peer from "peerjs";
 import "tailwindcss/tailwind.css";
-import { Socket } from "socket.io-client";
+import io from "socket.io-client";
 
 const VideoCall = ({ partnerId }) => {
-  const [peerId, setPeerId] = useState("");
   const [call, setCall] = useState(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
+  const socket = useRef(null);
 
   useEffect(() => {
     const peer = new Peer();
     peerRef.current = peer;
 
     peer.on("open", (id) => {
-      setPeerId(id);
-
       // Emit the user's peer ID to the server
-      Socket.current.emit("register", { peerId: id });
+      socket.current.emit("register", { peerId: id });
     });
 
     peer.on("call", (incomingCall) => {
@@ -184,14 +182,16 @@ const VideoCall = ({ partnerId }) => {
       });
     });
 
-    if (partnerId) {
+    socket.current = io("https://new-omagle.onrender.com");
+    socket.current.on("pair", ({ partnerId }) => {
       startCall(partnerId);
-    }
+    });
 
     return () => {
       peer.disconnect();
+      socket.current.disconnect();
     };
-  }, [partnerId]);
+  }, []);
 
   const startCall = (remotePeerId) => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
@@ -250,3 +250,4 @@ const VideoCall = ({ partnerId }) => {
 };
 
 export default VideoCall;
+

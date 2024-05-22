@@ -20,12 +20,13 @@ function App() {
   const myVideo = useRef();
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
         setStream(stream);
-        if (myVideo) myVideo.current.srcObject = stream;
+        if (myVideo.current) {
+          myVideo.current.srcObject = stream;
+        }
       });
 
     socket.on("me", (id) => {
@@ -38,7 +39,12 @@ function App() {
       setName(data.name);
       setCallerSignal(data.signal);
     });
-  }, [myVideo]);
+
+    return () => {
+      socket.off("me");
+      socket.off("callUser");
+    };
+  }, []);
 
   const callUser = (id) => {
     const peer = new Peer({
@@ -56,8 +62,8 @@ function App() {
       });
     });
 
-    peer.on("stream", (stream) => {
-      userVideo.current.srcObject = stream;
+    peer.on("stream", (currentStream) => {
+      userVideo.current.srcObject = currentStream;
     });
 
     socket.on("callAccepted", (signal) => {
@@ -80,8 +86,8 @@ function App() {
       socket.emit("answerCall", { signal: data, to: caller });
     });
 
-    peer.on("stream", (stream) => {
-      userVideo.current.srcObject = stream;
+    peer.on("stream", (currentStream) => {
+      userVideo.current.srcObject = currentStream;
     });
 
     peer.signal(callerSignal);
@@ -96,9 +102,9 @@ function App() {
   return (
     <>
       <div>
-        <div className="flex flex-row w-full justify-center gap-[15%] h-screen bg-black ">
+        <div className="flex flex-row w-full justify-center gap-[15%] h-screen bg-black">
           <div>
-            <div class="flex-grow flex flex-col items-center justify-center h-[90%]">
+            <div className="flex-grow flex flex-col items-center justify-center h-[90%]">
               <span className="text-white font-bold text-3xl mb-4">
                 Basic React JS video calling
               </span>
@@ -106,8 +112,8 @@ function App() {
                 Copy your ID and anyone using the same server can use it to call
                 you and vice versa!
               </span>
-              <div class="flex flex-row gap-32">
-                <div class="flex flex-col items-center justify-center w-full">
+              <div className="flex flex-row gap-32">
+                <div className="flex flex-col items-center justify-center w-full">
                   <div className="video">
                     {stream && (
                       <video
@@ -126,7 +132,7 @@ function App() {
                   <p className="text-white">{me}</p>
                 </div>
 
-                <div class="flex flex-col items-center justify-center w-full">
+                <div className="flex flex-col items-center justify-center w-full">
                   {callAccepted && !callEnded ? (
                     <video
                       className="rounded-full"
@@ -139,9 +145,9 @@ function App() {
                     <div className="flex flex-col justify-center items-center">
                       <img
                         src="https://w0.peakpx.com/wallpaper/416/423/HD-wallpaper-devil-boy-in-mask-red-hoodie-dark-background-4ef517.jpg"
-                        class="rounded-full w-[15rem]"
+                        className="rounded-full w-[15rem]"
                       />
-                      <span class="text-white font-bold text-lg">
+                      <span className="text-white font-bold text-lg">
                         {idToCall}
                       </span>
                     </div>

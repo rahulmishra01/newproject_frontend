@@ -66,6 +66,15 @@ const VideoCall = ({ userId }) => {
       });
   };
 
+  const endCall = () => {
+    if (call) {
+      call.close();
+      setCall(null);
+      remoteVideoRef.current.srcObject = null;
+      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+    }
+  };
+
   const toggleMute = () => {
     const stream = localVideoRef.current.srcObject;
     stream
@@ -103,6 +112,14 @@ const VideoCall = ({ userId }) => {
         >
           Call
         </button>
+        {call && (
+          <button
+            onClick={endCall}
+            className="bg-red-500 text-white p-2 rounded"
+          >
+            End Call
+          </button>
+        )}
         <button
           onClick={toggleMute}
           className="bg-gray-500 text-white p-2 rounded"

@@ -112,7 +112,7 @@ const VideoCall = ({ userId }) => {
         >
           Call
         </button>
-        {incomingCall && (
+        {call && (
           <button
             onClick={endCall}
             className="bg-red-500 text-white p-2 rounded"

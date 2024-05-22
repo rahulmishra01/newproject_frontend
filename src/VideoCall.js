@@ -33,7 +33,7 @@ const VideoCall = ({ userId }) => {
       });
     });
 
-    socket.current = io('http://localhost:5000');
+    socket.current = io('https://new-omagle.onrender.com');
     socket.current.on('ring', data => {
       setRemotePeerId(data.from);
     });

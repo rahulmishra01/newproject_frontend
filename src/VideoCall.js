@@ -176,6 +176,7 @@ const VideoCall = ({ userId }) => {
     });
 
     peer.on("call", (incomingCall) => {
+      console.log("Incoming call from: ", incomingCall.peer);
       setCall(incomingCall);
       answerCall(incomingCall);
     });
@@ -183,10 +184,12 @@ const VideoCall = ({ userId }) => {
     socket.current = io("https://new-omagle.onrender.com");
 
     socket.current.on("ring", (data) => {
+      console.log("Ringing from: ", data.from);
       startCall(data.from);
     });
 
     socket.current.on("callEnded", () => {
+      console.log("Call ended");
       endCall();
     });
 
@@ -200,12 +203,17 @@ const VideoCall = ({ userId }) => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
+        console.log("Got local stream");
         localVideoRef.current.srcObject = stream;
         const outgoingCall = peerRef.current.call(remotePeerId, stream);
         outgoingCall.on("stream", (remoteStream) => {
+          console.log("Got remote stream");
           remoteVideoRef.current.srcObject = remoteStream;
         });
         setCall(outgoingCall);
+      })
+      .catch((err) => {
+        console.error("Failed to get local stream", err);
       });
   };
 
@@ -213,12 +221,17 @@ const VideoCall = ({ userId }) => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
+        console.log("Got local stream for answering call");
         localVideoRef.current.srcObject = stream;
         incomingCall.answer(stream);
         incomingCall.on("stream", (remoteStream) => {
+          console.log("Got remote stream for answered call");
           remoteVideoRef.current.srcObject = remoteStream;
         });
         setCall(incomingCall);
+      })
+      .catch((err) => {
+        console.error("Failed to get local stream for answering call", err);
       });
   };
 
@@ -226,22 +239,32 @@ const VideoCall = ({ userId }) => {
     if (call) {
       call.close();
       setCall(null);
+      if (remoteVideoRef.current.srcObject) {
+        remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      }
       remoteVideoRef.current.srcObject = null;
-      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      if (localVideoRef.current.srcObject) {
+        localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      }
+      localVideoRef.current.srcObject = null;
       socket.current.emit("endCall", { to: call.peer });
     }
   };
 
   const toggleMute = () => {
     const stream = localVideoRef.current.srcObject;
-    stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
-    setMuted(!muted);
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
+      setMuted(!muted);
+    }
   };
 
   const toggleVideo = () => {
     const stream = localVideoRef.current.srcObject;
-    stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
-    setVideoOff(!videoOff);
+    if (stream) {
+      stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
+      setVideoOff(!videoOff);
+    }
   };
 
   return (

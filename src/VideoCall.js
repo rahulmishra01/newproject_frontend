@@ -33,6 +33,10 @@ const VideoCall = ({ userId }) => {
       setRemotePeerId(data.from);
     });
 
+    socket.current.on("callEnded", () => {
+      endCall();
+    });
+
     return () => {
       peer.disconnect();
       socket.current.disconnect();
@@ -72,6 +76,7 @@ const VideoCall = ({ userId }) => {
       setCall(null);
       remoteVideoRef.current.srcObject = null;
       localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      socket.current.emit("endCall", { to: remotePeerId });
     }
   };
 
@@ -114,6 +119,14 @@ const VideoCall = ({ userId }) => {
         </button>
         {incomingCall && (
           <button
+            onClick={answerCall}
+            className="bg-green-500 text-white p-2 rounded"
+          >
+            Answer Call
+          </button>
+        )}
+        {call && (
+          <button
             onClick={endCall}
             className="bg-red-500 text-white p-2 rounded"
           >
@@ -132,14 +145,6 @@ const VideoCall = ({ userId }) => {
         >
           {videoOff ? "Turn Video On" : "Turn Video Off"}
         </button>
-        {incomingCall && (
-          <button
-            onClick={answerCall}
-            className="bg-green-500 text-white p-2 rounded"
-          >
-            Answer Call
-          </button>
-        )}
       </div>
     </div>
   );

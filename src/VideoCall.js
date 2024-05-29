@@ -196,7 +196,7 @@ const VideoCall = ({ userId }) => {
       setIncomingCall(incomingCall);
     });
 
-    socket.current = io("http://localhost:5000");
+    socket.current = io("https://new-omagle.onrender.com");
     socket.current.emit("join-room");
 
     socket.current.on("room-assigned", ({ roomKey, users }) => {

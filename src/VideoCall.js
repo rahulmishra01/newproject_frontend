@@ -199,7 +199,7 @@ const VideoCall = ({ userId }) => {
     socket.current = io("https://new-omagle.onrender.com");
     socket.current.emit("join-room");
 
-    socket.current.on("room-assigned", ({ roomKey, users }) => {
+    socket.current.on("room-assigned", ({ users }) => {
       if (users.length === 2) {
         const otherUser = users.find((id) => id !== userId);
         setRemotePeerId(otherUser);

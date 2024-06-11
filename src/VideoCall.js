@@ -3,7 +3,7 @@ import Peer from "peerjs";
 import io from "socket.io-client";
 import "tailwindcss/tailwind.css";
 
-const VideoCall = ({ userId, peerId }) => {
+const VideoCall = ({ peerId }) => {
   const [call, setCall] = useState(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
@@ -14,40 +14,36 @@ const VideoCall = ({ userId, peerId }) => {
   const peerRef = useRef(null);
 
   useEffect(() => {
-    const peer = new Peer(userId);
+    const peer = new Peer();
     peerRef.current = peer;
 
     peer.on("open", (id) => {
       console.log("Peer ID:", id);
-    });
+      socket.current = io("https://new-omagle.onrender.com");
+      socket.current.emit("joinRandomChat", id);
+      socket.current.on("peerFound", (peerId) => {
+        startCall(peerId);
+      });
 
-    peer.on("call", (incomingCall) => {
-      setCall(incomingCall);
-      setIncomingCall(incomingCall);
-    });
+      peer.on("call", (incomingCall) => {
+        setCall(incomingCall);
+        setIncomingCall(incomingCall);
+      });
 
-    socket.current = io("https://new-omagle.onrender.com");
-    socket.current.on("ring", (data) => {
-      setRemotePeerId(data.from);
-    });
-
-    socket.current.on("callEnded", () => {
-      endCall();
+      socket.current.on("callEnded", () => {
+        endCall();
+      });
     });
 
     return () => {
       peer.disconnect();
-      socket.current.disconnect();
+      if (socket.current) {
+        socket.current.disconnect();
+      }
     };
-  }, [userId]);
+  }, []);
 
-  useEffect(() => {
-    if (peerId) {
-      startCall();
-    }
-  }, [peerId]);
-
-  const startCall = () => {
+  const startCall = (peerId) => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -79,26 +75,20 @@ const VideoCall = ({ userId, peerId }) => {
       call.close();
       setCall(null);
       remoteVideoRef.current.srcObject = null;
-      localVideoRef.current.srcObject
-        .getTracks()
-        .forEach((track) => track.stop());
+      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
       socket.current.emit("endCall", { to: peerId });
     }
   };
 
   const toggleMute = () => {
     const stream = localVideoRef.current.srcObject;
-    stream
-      .getAudioTracks()
-      .forEach((track) => (track.enabled = !track.enabled));
+    stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
     setMuted(!muted);
   };
 
   const toggleVideo = () => {
     const stream = localVideoRef.current.srcObject;
-    stream
-      .getVideoTracks()
-      .forEach((track) => (track.enabled = !track.enabled));
+    stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
     setVideoOff(!videoOff);
   };
 

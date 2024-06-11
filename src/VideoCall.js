@@ -3,7 +3,9 @@ import Peer from "peerjs";
 import io from "socket.io-client";
 import "tailwindcss/tailwind.css";
 
-const VideoCall = ({ peerId }) => {
+const VideoCall = ({ userId }) => {
+  const [peerId, setPeerId] = useState("");
+  const [remotePeerId, setRemotePeerId] = useState("");
   const [call, setCall] = useState(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
@@ -14,41 +16,39 @@ const VideoCall = ({ peerId }) => {
   const peerRef = useRef(null);
 
   useEffect(() => {
-    const peer = new Peer();
+    const peer = new Peer(userId);
     peerRef.current = peer;
 
     peer.on("open", (id) => {
-      console.log("Peer ID:", id);
-      socket.current = io("https://new-omagle.onrender.com");
-      socket.current.emit("joinRandomChat", id);
-      socket.current.on("peerFound", (peerId) => {
-        startCall(peerId);
-      });
+      setPeerId(id);
+    });
 
-      peer.on("call", (incomingCall) => {
-        setCall(incomingCall);
-        setIncomingCall(incomingCall);
-      });
+    peer.on("call", (incomingCall) => {
+      setCall(incomingCall);
+      setIncomingCall(incomingCall);
+    });
 
-      socket.current.on("callEnded", () => {
-        endCall();
-      });
+    socket.current = io("https://new-omagle.onrender.com");
+    socket.current.on("ring", (data) => {
+      setRemotePeerId(data.from);
+    });
+
+    socket.current.on("callEnded", () => {
+      endCall();
     });
 
     return () => {
       peer.disconnect();
-      if (socket.current) {
-        socket.current.disconnect();
-      }
+      socket.current.disconnect();
     };
-  }, []);
+  }, [userId]);
 
-  const startCall = (peerId) => {
+  const startCall = () => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
         localVideoRef.current.srcObject = stream;
-        const outgoingCall = peerRef.current.call(peerId, stream);
+        const outgoingCall = peerRef.current.call(remotePeerId, stream);
         outgoingCall.on("stream", (remoteStream) => {
           remoteVideoRef.current.srcObject = remoteStream;
         });
@@ -76,19 +76,23 @@ const VideoCall = ({ peerId }) => {
       setCall(null);
       remoteVideoRef.current.srcObject = null;
       localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      socket.current.emit("endCall", { to: peerId });
+      socket.current.emit("endCall", { to: remotePeerId });
     }
   };
 
   const toggleMute = () => {
     const stream = localVideoRef.current.srcObject;
-    stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
+    stream
+      .getAudioTracks()
+      .forEach((track) => (track.enabled = !track.enabled));
     setMuted(!muted);
   };
 
   const toggleVideo = () => {
     const stream = localVideoRef.current.srcObject;
-    stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
+    stream
+      .getVideoTracks()
+      .forEach((track) => (track.enabled = !track.enabled));
     setVideoOff(!videoOff);
   };
 
@@ -100,6 +104,19 @@ const VideoCall = ({ peerId }) => {
         <video ref={remoteVideoRef} autoPlay className="w-1/2 border" />
       </div>
       <div className="space-y-2">
+        <input
+          type="text"
+          placeholder="Enter peer ID to call"
+          value={remotePeerId}
+          onChange={(e) => setRemotePeerId(e.target.value)}
+          className="p-2 border rounded"
+        />
+        <button
+          onClick={startCall}
+          className="bg-blue-500 text-white p-2 rounded"
+        >
+          Call
+        </button>
         {incomingCall && (
           <button
             onClick={answerCall}

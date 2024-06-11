@@ -3,9 +3,7 @@ import Peer from "peerjs";
 import io from "socket.io-client";
 import "tailwindcss/tailwind.css";
 
-const VideoCall = ({ userId }) => {
-  const [peerId, setPeerId] = useState("");
-  const [remotePeerId, setRemotePeerId] = useState("");
+const VideoCall = ({ userId, peerId }) => {
   const [call, setCall] = useState(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
@@ -20,7 +18,7 @@ const VideoCall = ({ userId }) => {
     peerRef.current = peer;
 
     peer.on("open", (id) => {
-      setPeerId(id);
+      console.log("Peer ID:", id);
     });
 
     peer.on("call", (incomingCall) => {
@@ -43,12 +41,18 @@ const VideoCall = ({ userId }) => {
     };
   }, [userId]);
 
+  useEffect(() => {
+    if (peerId) {
+      startCall();
+    }
+  }, [peerId]);
+
   const startCall = () => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
         localVideoRef.current.srcObject = stream;
-        const outgoingCall = peerRef.current.call(remotePeerId, stream);
+        const outgoingCall = peerRef.current.call(peerId, stream);
         outgoingCall.on("stream", (remoteStream) => {
           remoteVideoRef.current.srcObject = remoteStream;
         });
@@ -75,8 +79,10 @@ const VideoCall = ({ userId }) => {
       call.close();
       setCall(null);
       remoteVideoRef.current.srcObject = null;
-      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      socket.current.emit("endCall", { to: remotePeerId });
+      localVideoRef.current.srcObject
+        .getTracks()
+        .forEach((track) => track.stop());
+      socket.current.emit("endCall", { to: peerId });
     }
   };
 
@@ -104,19 +110,6 @@ const VideoCall = ({ userId }) => {
         <video ref={remoteVideoRef} autoPlay className="w-1/2 border" />
       </div>
       <div className="space-y-2">
-        <input
-          type="text"
-          placeholder="Enter peer ID to call"
-          value={remotePeerId}
-          onChange={(e) => setRemotePeerId(e.target.value)}
-          className="p-2 border rounded"
-        />
-        <button
-          onClick={startCall}
-          className="bg-blue-500 text-white p-2 rounded"
-        >
-          Call
-        </button>
         {incomingCall && (
           <button
             onClick={answerCall}
